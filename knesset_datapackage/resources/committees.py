@@ -186,20 +186,20 @@ class CommitteeMeetingProtocolsResource(CsvFilesResource):
                         csv_writer = csv.writer(f)
                         csv_writer.writerow(["name","role","additional_information"])
                         try:
-                            for role in protocol.atendees.keys():
-                                if role == "invitees":
-                                    for invitee in protocol.atendees[role]:
-                                        csv_writer.writerow([invitee["name"],"invitee",invitee["role"]])
+                            for role in protocol.attendees.keys():
+                                if role == "invitees" and protocol.attendees[role]:
+                                    for invitee in protocol.attendees[role]:
+                                        csv_writer.writerow([invitee["name"].encode("utf-8"),"invitee",invitee["role"].encode("utf-8")])
                                 else:
-                                    if isinstance(protocol.atendees[role], list):
-                                        for atendee in protocol.atendees[role]:
-                                            csv_writer.writerow([atendee,role])
-                                    elif isinstance(protocol.atendees[role], (str, unicode))
-                                            csv_writer.writerow([protocol.atendees[role],role])
+                                    if isinstance(protocol.attendees[role], list):
+                                        for attendee in protocol.attendees[role]:
+                                            csv_writer.writerow([attendee.encode("utf-8"),role])
+                                    elif isinstance(protocol.attendees[role], (str, unicode)):
+                                        csv_writer.writerow([protocol.attendees[role].encode("utf-8"),role])
                         except Exception, e:
                             if make_kwargs.get("skip_exceptions"):
                                 row["attendees"] = ""
-                                self.logger.warn("error getting atendees file for committee {} meeting {}: {}".format(committee_id, meeting_id, e))
+                                self.logger.warn("error getting atrendees file for committee {} meeting {}: {}".format(committee_id, meeting_id, e))
                                 self.logger.debug(e, exc_info=1)
                                 scraper_errors.append("error getting attendees file: {}".format(e))
                             else:
