@@ -1,2 +1,2 @@
 unicodecsv==0.14.1
--e git://github.com/hasadna/knesset-data-python.git@master#egg=knesset-data
+-e git://github.com/RavivBarzilay/knesset-data-python.git@protocol_lobbyists#egg=knesset-data
