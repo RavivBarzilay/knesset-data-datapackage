@@ -93,7 +93,7 @@ class CommitteeMeetingsResource(CsvResource):
 class CommitteeMeetingProtocolsResource(CsvFilesResource):
 
     def __init__(self, name, parent_datapackage_path):
-        json_table_schema = {"fields": [{"type": "integer", "name": "committee_id"},
+        json_table_schema = {"fields": [{"type": "integer", "name": "committee_id"}, #TODO: add connection to atendees csv data file
                                         {"type": "integer", "name": "meeting_id"},
                                         {"type": "string", "name": "text",
                                          "description": "text file containing only the pure text of the protocol (empty in case of error)"},
@@ -101,6 +101,8 @@ class CommitteeMeetingProtocolsResource(CsvFilesResource):
                                          "description": "csv file with protocol split to speakers (empty in case of error)"},
                                         {"type": "string", "name": "original",
                                          "description": "original file as retrieved from the Knesset (empty in case of error)"},
+                                        {"type": "string", "name": "attendees",
+                                         "description": "name of attendees scraped from the text of the protocol (empty in case of error)"},
                                         {"type": "string", "name": "scraper_errors",
                                          "description": "comma-separated list of errors received while scraping"}]}
         super(CommitteeMeetingProtocolsResource, self).__init__(name, parent_datapackage_path, json_table_schema,
@@ -117,12 +119,14 @@ class CommitteeMeetingProtocolsResource(CsvFilesResource):
             rel_text_file_path = os.path.join(rel_meeting_path, "protocol.txt")
             rel_parts_file_path = os.path.join(rel_meeting_path, "protocol.csv")
             rel_original_file_path = os.path.join(rel_meeting_path, "original.doc")
+            rel_attendees_file_path = os.path.join(rel_meeting_path, "attendees.csv")
             # absolute paths
             abs_committee_path = os.path.join(self._base_path, rel_committee_path)
             abs_meeting_path = os.path.join(self._base_path, rel_meeting_path)
             abs_text_file_path = os.path.join(self._base_path, rel_text_file_path)
             abs_parts_file_path = os.path.join(self._base_path, rel_parts_file_path)
             abs_original_file_path = os.path.join(self._base_path, rel_original_file_path)
+            abs_attendees_file_path = os.path.join(self._base_path, rel_attendees_file_path)
             # create directories
             if not os.path.exists(abs_committee_path):
                 os.mkdir(abs_committee_path)
@@ -136,7 +140,8 @@ class CommitteeMeetingProtocolsResource(CsvFilesResource):
                        "meeting_id": meeting_id,
                        "text": rel_text_file_path.lstrip("/"),
                        "parts": rel_parts_file_path.lstrip("/"),
-                       "original": rel_original_file_path.lstrip("/")}
+                       "original": rel_original_file_path.lstrip("/"),
+                       "attendees": rel_attendees_file_path.lstrip("/")}
                 # original
                 try:
                     shutil.copyfile(protocol.file_name, abs_original_file_path)
@@ -175,5 +180,31 @@ class CommitteeMeetingProtocolsResource(CsvFilesResource):
                             scraper_errors.append("error getting parts file: {}".format(e))
                         else:
                             raise
+                
+                if protocol.attendees:
+                    with open(abs_attendees_file_path, 'wb') as f:
+                        csv_writer = csv.writer(f)
+                        csv_writer.writerow(["name","role","additional_information"])
+                        try:
+                            for role in protocol.atendees.keys():
+                                if role == "invitees":
+                                    for invitee in protocol.atendees[role]:
+                                        csv_writer.writerow([invitee["name"],"invitee",invitee["role"]])
+                                else:
+                                    if isinstance(protocol.atendees[role], list):
+                                        for atendee in protocol.atendees[role]:
+                                            csv_writer.writerow([atendee,role])
+                                    elif isinstance(protocol.atendees[role], (str, unicode))
+                                            csv_writer.writerow([protocol.atendees[role],role])
+                        except Exception, e:
+                            if make_kwargs.get("skip_exceptions"):
+                                row["attendees"] = ""
+                                self.logger.warn("error getting atendees file for committee {} meeting {}: {}".format(committee_id, meeting_id, e))
+                                self.logger.debug(e, exc_info=1)
+                                scraper_errors.append("error getting attendees file: {}".format(e))
+                            else:
+                                raise
+
+
                 row["scraper_errors"] = ", ".join(scraper_errors)
                 self._append(row, **make_kwargs)
